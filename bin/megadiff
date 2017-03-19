@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+
+import argparse
+import logging
+import sys
+
+from megadiff import compare_files
+
+
+def parse_arguments():
+    opt = argparse.ArgumentParser(description='Megadiff: a program to compare lines across two massive files')
+    opt.add_argument('-v', '--verbose', help='Verbose output', required=False, action='store_true', default=False)
+    opt.add_argument('-p', '--file-1', help='File whose lines will drive the iteration', required=False)
+    opt.add_argument('-q', '--file-2', help='File whose lines will be extracted based on the driving iteration', required=False)
+    opt.add_argument('-s', '--allow-size-disparity', help='Continue processing even if file sizes do not match', required=False, action='store_true', default=False)
+    
+    return opt.parse_args()
+
+def main():
+    args = parse_arguments()
+
+    logging.basicConfig(
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        handlers=[logging.StreamHandler(sys.stdout)],
+        stream=sys.stderr,
+    )
+
+    if args.file_1 and args.file_2:
+        compare_files(args.file_1, args.file_2, args.allow_size_disparity)
+    else:
+        print('Unable to determine intended action')
+
+if __name__ == '__main__':
+    sys.exit(main())

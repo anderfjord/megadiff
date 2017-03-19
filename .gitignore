@@ -1,0 +1,9 @@
+# Common virtual environment directories
+env/
+venv/
+
+# Compiled binaries
+*.pyc
+
+# Mac weirdness
+*.DS_Store
