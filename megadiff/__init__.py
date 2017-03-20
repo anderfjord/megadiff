@@ -11,29 +11,8 @@ log = logging.getLogger(__name__)
 REPORT_INTERVAL = 5000
 
 
-def compare_files_by_size(filepath_1, filepath_2):
-    """ Compares two files based on their size """
-
-    start_ts = datetime.now()
-    f1_size = os.stat(filepath_1).st_size
-    f2_size = os.stat(filepath_2).st_size
-    sizes_are_equal = f1_size == f2_size
-
-    log.info('--------------------------------------')
-    log.info('Comparing file "%s" to file "%s"', filepath_1, filepath_2)
-    log.info('Size of File 1: %d', f1_size)
-    log.info('Size of File 2: %d', f2_size)
-
-    if sizes_are_equal:
-        log.info('!!! FILES ARE OF EQUAL SIZE !!!')
-    else:
-        log.info('!!! FILES ARE DIFFERENT SIZES !!!')
-
-    return sizes_are_equal
-
-
 def compare_files_by_line(filepath_1, filepath_2):
-    """ Compares two files based on file size and the contents of each individual line """
+    """ Compares two files based on the contents of each line """
 
     start_ts = datetime.now()
     counts = {
@@ -75,7 +54,7 @@ def compare_files_by_line(filepath_1, filepath_2):
 
                 try:
                     f2_line = next(f2_lines)
-                except:
+                except StopIteration:
                     _print_comparison_report()
                     log.info('--------------------------------------')
                     log.info('!!! FILE 1 IS LONGER THAN FILE 2 !!!')
@@ -100,12 +79,19 @@ def compare_files_by_line(filepath_1, filepath_2):
             log.info('FINAL REPORT')
             _print_comparison_report()
 
+            """
+            At this point we have iterated over all of File 1's lines,
+            and need to make sure that File 2 doesn't have additional lines.
+            If the call to next() succeeeds without raising an exception,
+            then it means that File 2 has at least one additional line,
+            meaning that File 1 and File 2 do not match exactly.
+            """
             try:
                 extra_line = next(f2_lines)
                 log.info('--------------------------------------')
                 log.info('!!! FILE 2 IS LONGER THAN FILE 1 !!!')
                 return False
-            except Exception as ex:
+            except StopIteration:
                 pass
 
     if counts['misses'] == 0:
@@ -114,3 +100,25 @@ def compare_files_by_line(filepath_1, filepath_2):
     else:
         log.info('!!! FILES DO NOT MATCH !!!')
         return False
+
+
+def compare_files_by_size(filepath_1, filepath_2):
+    """ Compares two files based on their size """
+
+    start_ts = datetime.now()
+    f1_size = os.stat(filepath_1).st_size
+    f2_size = os.stat(filepath_2).st_size
+    sizes_are_equal = f1_size == f2_size
+
+    log.info('--------------------------------------')
+    log.info('Comparing file "%s" to file "%s"', filepath_1, filepath_2)
+    log.info('Size of File 1: %d', f1_size)
+    log.info('Size of File 2: %d', f2_size)
+
+    if sizes_are_equal:
+        log.info('!!! FILES ARE OF EQUAL SIZE !!!')
+    else:
+        log.info('!!! FILES ARE DIFFERENT SIZES !!!')
+
+    return sizes_are_equal
+
