@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='megadiff',
-    version='0.0.12',
+    version='0.0.13',
     url='https://github.com/anderfjord/megadiff.git',
     author='Andrew Forth',
     author_email='zanderfjord+github@gmail.com',
