@@ -1,16 +1,16 @@
 # megadiff
-A simple utility to compare the contents of two massive files.
+A simple utility to compare the contents of two potentially massive files.
 
 # Installation
 
 ```
-pip install megadiff
+pip install git+https://github.com/anderfjord/megadiff.git
 ```
 
 OR to install from source
 
 ```
-# Make sure you have Python and pip installed.
+# Make sure you have Python, pip, and virtualenv installed.
 git clone https://github.com/anderfjord/megadiff.git
 cd megadiff
 virtualenv env
@@ -20,9 +20,14 @@ pip install .
 
 # Usage
 
-## Example #1 - Compare two files in verbose mode
+## Example #1 - Compare two files line-by-line in verbose mode
 ```
-$ megadiff -v -p "/tmp/massive_file-1.txt" -q "/tmp/massive_file-2.txt"
+$ megadiff -p "/tmp/massive_file-1.txt" -q "/tmp/massive_file-2.txt"  --verbose
+```
+
+## Example #2 - Compare two files based on their overall sizes
+```
+$ megadiff -p "/tmp/massive_file-1.txt" -q "/tmp/massive_file-2.txt"  --size
 ```
 
 # License

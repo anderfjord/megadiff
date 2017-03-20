@@ -8,110 +8,109 @@ from datetime import datetime
 
 log = logging.getLogger(__name__)
 
-UPDATE_AFTER_PROCESSED_LINES = 5000
+REPORT_INTERVAL = 5000
 
 
-def _print_comparison_report(start_ts, end_ts, counts):
-    time_diff = end_ts - start_ts
-    time_diff_in_secs = time_diff.total_seconds()
-    time_diff_in_minutes = '%dmins, %dsecs' % (time_diff_in_secs / 60, time_diff_in_secs % 60)
-
-    log.info('--------------------------------------')
-    log.info('Ending file comparison at: %s', end_ts)
-    log.info('Elapsed Time In Seconds: %d', time_diff_in_secs)
-    log.info('Execution Time: %s', time_diff_in_minutes)
-    log.info('Total Lines Compared: %d', counts['iterations'])
-    log.info('Match Count: %d', counts['matches'])
-    log.info('Miss Count: %d', counts['misses'])
-    log.info('--------------------------------------')
-
-    if counts['misses'] == 0 and counts['f1_lines'] == counts['f2_lines']:
-        log.info('!!! FILES PROBABLY MATCH !!!')
-    else:
-        log.warning('!!! FILES DEFINITELY DO NOT MATCH !!!')
-
-def _finalize(main_file, start_ts, end_ts, counts):
-    main_file.close()
-    _print_comparison_report(
-        start_ts=start_ts,
-        end_ts=end_ts,
-        counts=counts,
-    )
-
-def file_sizes_are_equal(filepath_1, filepath_2):
-    return os.stat(filepath_1).st_size == os.stat(filepath_2).st_size
-
-def compare_files(filepath_1, filepath_2, allow_size_disparity=False):
+def compare_files_by_size(filepath_1, filepath_2):
+    """ Compares two files based on their size """
 
     start_ts = datetime.now()
-    end_ts = None
-    file_sizes_are_not_equal = False
+    f1_size = os.stat(filepath_1).st_size
+    f2_size = os.stat(filepath_2).st_size
+    sizes_are_equal = f1_size == f2_size
+
+    log.info('--------------------------------------')
+    log.info('Comparing file "%s" to file "%s"', filepath_1, filepath_2)
+    log.info('Size of File 1: %d', f1_size)
+    log.info('Size of File 2: %d', f2_size)
+
+    if sizes_are_equal:
+        log.info('!!! FILES ARE OF EQUAL SIZE !!!')
+    else:
+        log.info('!!! FILES ARE DIFFERENT SIZES !!!')
+
+    return sizes_are_equal
+
+
+def compare_files_by_line(filepath_1, filepath_2):
+    """ Compares two files based on file size and the contents of each individual line """
+
+    start_ts = datetime.now()
     counts = {
         'iterations': 0,
-        'f1_lines': 0,
-        'f2_lines': 0,
         'matches': 0,
         'misses': 0,
     }
 
     log.info('Starting file comparison at: %s', start_ts)
-    log.info('Comparing file "%s" to file "%s"', filepath_1, filepath_2)
+    log.info('Comparing files:')
+    log.info('File 1: %s', filepath_1)
+    log.info('File 2: %s', filepath_2)
 
-    """
-    It would be ideal if we could strip whitespace from each line of both files prior
-    to comparing them, but this is not feasible. Consequently file size ends up being
-    somewhat of a crude comparison.
-    """
-    if not file_sizes_are_equal(filepath_1, filepath_2):
-        log.warning('!!! FILE SIZES ARE NOT EQUAL !!!')
+    def _print_comparison_report():
+        """ Outputs a report of comparison results """
 
-        if allow_size_disparity:
-            file_sizes_are_not_equal = True
-        else:
-            return
-    else:
-        log.info('File sizes are equal.')
+        time_diff = datetime.now() - start_ts
+        time_diff_in_secs = time_diff.total_seconds()
+        time_diff_in_minutes = '%dmins, %dsecs' % (time_diff_in_secs / 60, time_diff_in_secs % 60)
+
+        log.info('--------------------------------------')
+        log.info('Elapsed Time In Seconds: %d', time_diff_in_secs)
+        log.info('Execution Time: %s', time_diff_in_minutes)
+        log.info('Lines Processed: %d', counts['iterations'])
+        log.info('Match Count: %d', counts['matches'])
+        log.info('Miss Count: %d', counts['misses'])
+
+
+    def _line_generator(file_handle):
+        for line in file_handle:
+            yield line
 
     with open(filepath_1) as f1_handle:
-        
-        for f1_line in f1_handle:
+        with open(filepath_2) as f2_handle:
 
-            counts['iterations'] += 1
-            counts['f1_lines'] += 1
-            counts['f2_lines'] += 1
+            f2_lines = _line_generator(f2_handle)
 
-            if counts['iterations'] % UPDATE_AFTER_PROCESSED_LINES == 0:
-                log.info('%d lines processed...', counts['iterations'])
+            for f1_line in f1_handle:
 
-            f1_line = f1_line.strip()
+                try:
+                    f2_line = next(f2_lines)
+                except:
+                    _print_comparison_report()
+                    log.info('--------------------------------------')
+                    log.info('!!! FILE 1 IS LONGER THAN FILE 2 !!!')
+                    return False
 
-            # TODO - potential alternative
-            # Instead of using linecache...
-            # For every line from F1, take note of line length.
-            # Use F1's line length in conjunction with `F2.seek()` to extract the corresponding line from F2.
-            # If at any point comparisons don't match, then there are differences in the file.
-            f2_line = linecache.getline(filepath_2, counts['iterations']).strip()
+                counts['iterations'] += 1
 
-            if f1_line == f2_line:
-                counts['matches'] += 1
-            else:
-                counts['misses'] += 1
-
-                """
-                File sizes do not match but we're allowing comparison in any case.
-                That's all well and good, but don't print out the lines for this scenario,
-                since it's likely that most of the lines don't match, which would result
-                in most of the lines of potentially YUGE files being printed to stdout.
-                """
-                if not file_sizes_are_not_equal:
-                    log.debug('-------------------')
+                if f1_line == f2_line:
+                    counts['matches'] += 1
+                else:
+                    counts['misses'] += 1
+                    log.debug('MISS -------------------')
                     log.debug('F1 Line: %s', f1_line)
                     log.debug('-------')
                     log.debug('F2 Line: %s', f2_line)
 
-    return _finalize(
-        main_file=f1_handle,
-        start_ts=start_ts,
-        end_ts=datetime.now(),
-        counts=counts,
-    )
+                # Print a report every so often
+                if counts['iterations'] % REPORT_INTERVAL == 0:
+                    _print_comparison_report()
+
+            log.info('--------------------------------------')
+            log.info('FINAL REPORT')
+            _print_comparison_report()
+
+            try:
+                extra_line = next(f2_lines)
+                log.info('--------------------------------------')
+                log.info('!!! FILE 2 IS LONGER THAN FILE 1 !!!')
+                return False
+            except Exception as ex:
+                pass
+
+    if counts['misses'] == 0:
+        log.info('!!! FILES MATCH EXACTLY !!!')
+        return True
+    else:
+        log.info('!!! FILES DO NOT MATCH !!!')
+        return False
